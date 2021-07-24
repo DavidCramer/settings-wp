@@ -89,26 +89,45 @@ class Setting {
 	 * @return Setting|null
 	 */
 	public function __get( $name ) {
+		$value = false;
+		if ( '_' === $name[0] ) {
+			$value = true;
+			$name  = ltrim( $name, '_' );
+		}
 		if ( ! isset( $this->children[ $name ] ) ) {
-			return null;
+			$this->children[ $name ] = $this->root->add( $this->slug . $this->separator . $name );
+		}
+		$return = $this->children[ $name ];
+		if ( $value ) {
+			$return = $return->get();
 		}
 
-		return $this->children[ $name ];
+		return $return;
+	}
+
+	/**
+	 * Magic method to set a child setting's value.
+	 *
+	 * @param string $name  The setting name being set.
+	 * @param mixed  $value The value to set.
+	 */
+	public function __set( $name, $value ) {
+		$this->{$name}->set( $value );
 	}
 
 	/**
 	 * Add a child setting.
 	 *
-	 * @param string $slug   The setting name or slug.
-	 * @param array  $params The setting params.
+	 * @param Setting $setting The setting to add.
 	 *
 	 * @return Setting|\WP_Error
 	 */
-	public function add( $slug, $params = array() ) {
-		$child                   = $this->root->add( $this->slug . $this->separator . $slug, $params );
-		$this->children[ $slug ] = $child;
+	public function add( $setting ) {
+		$parts                   = explode( $this->separator, $setting->get_slug() );
+		$slug                    = array_pop( $parts );
+		$this->children[ $slug ] = $setting;
 
-		return $child;
+		return $setting;
 	}
 
 	/**

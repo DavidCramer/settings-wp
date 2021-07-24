@@ -83,7 +83,14 @@ class Settings {
 	 * @return \SettingsWP\Settings\Setting|null
 	 */
 	public function __get( $name ) {
-		return $this->get( $name );
+		if ( '_value' === $name ) {
+			return $this->get();
+		}
+		if ( ! isset( $this->settings[ $name ] ) ) {
+			$this->settings[ $name ] = $this->add( $name );
+		}
+
+		return $this->settings[ $name ];
 	}
 
 	/**
@@ -133,7 +140,41 @@ class Settings {
 	 *
 	 * @return Setting|\WP_Error
 	 */
-	public function add( $slug, $default = null, $params = array() ) {
+	public function add( $slug, $default = array(), $params = array() ) {
+
+		$parts      = explode( $this->separator, $slug );
+		$path       = array();
+		$value      = array();
+		$last_child = null;
+		while ( ! empty( $parts ) ) {
+			$path[] = array_shift( $parts );
+			if ( empty( $parts ) ) {
+				$value = $default;
+			}
+			$name  = implode( $this->separator, $path );
+			$child = $this->register( $name, $value, $params );
+			if ( is_wp_error( $child ) ) {
+				return $child;
+			}
+			if ( $last_child ) {
+				$last_child->add( $child );
+			}
+			$last_child = $child;
+		}
+
+		return $this->settings[ $slug ];
+	}
+
+	/**
+	 * Register a new setting with internals.
+	 *
+	 * @param string $slug    The setting slug.
+	 * @param mixed  $default The default value.
+	 * @param array  $params  The params.
+	 *
+	 * @return mixed|\SettingsWP\Settings\Setting|\WP_Error
+	 */
+	protected function register( $slug, $default, $params ) {
 
 		$exists = $this->get_param( '_register' . $this->separator . $slug );
 		if ( $exists ) {
@@ -152,7 +193,9 @@ class Settings {
 		$this->set_param( '_register' . $this->separator . $slug, $setting );
 		$this->set_param( '_settings' . $this->separator . $slug, $current_value );
 
-		$this->settings[ $slug ] = new Settings\Setting( $slug, $this );
+		if ( ! isset( $this->settings[ $slug ] ) ) {
+			$this->settings[ $slug ] = new Settings\Setting( $slug, $this );
+		}
 
 		return $this->settings[ $slug ];
 	}
